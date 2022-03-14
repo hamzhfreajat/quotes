@@ -5,11 +5,14 @@ package com.quotes;
 
 import com.google.gson.Gson;
 
-import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class App {
@@ -18,17 +21,34 @@ public class App {
     public static void main(String[] args) {
 
         // Read file
-        String path = "app/src/main/resources/recentquotes.json" ;
-        String json = fileReader(path);
-
+//        String path = "app/src/main/resources/recentquotes.json" ;
+//        String json = fileReader(path);
 
         Gson gson = new Gson();
+        String apiQuote ="";
+        try {
+            URL randomQuoteUrl = new URL("http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en") ;
+            HttpURLConnection quoteHttpURLConnection = (HttpURLConnection) randomQuoteUrl.openConnection();
+            quoteHttpURLConnection.setRequestMethod("GET");
+            InputStreamReader quoteInputStreamReader = new InputStreamReader(quoteHttpURLConnection.getInputStream());
+            BufferedReader quoteBufferedReader = new BufferedReader(quoteInputStreamReader);
+            apiQuote = quoteBufferedReader.readLine();
+        } catch (IOException e) {
+            String jsonFile = fileReader("./app/src/main/java/com/quotes/quotes.json");
+            QuoteApi[] quotesArray = gson.fromJson(jsonFile, QuoteApi[].class);
+            Random random = new Random();
+            int max = quotesArray.length - 1 ;
+            int randomNumber = random.nextInt(max + 1 );
+            System.out.println(quotesArray[randomNumber]);
+            return;
+        }
+
         // https://howtodoinjava.com/gson/gson-parse-json-array/
-        Quotes[] quotesArray = gson.fromJson(json, Quotes[].class);
-        Random random = new Random();
-        int max = quotesArray.length - 1 ;
-        int randomNumber = random.nextInt(max + 1 );
-        System.out.println(quotesArray[randomNumber]);
+        QuoteApi quote = gson.fromJson(apiQuote, QuoteApi.class);
+        System.out.println(quote);
+
+        writeFileByLine("./app/src/main/java/com/quotes/quotes.json" , quote);
+
 
 
 //        for(Quotes quote : quotesArray) {
@@ -54,4 +74,40 @@ public class App {
         }
         return json ;
     }
+
+    public static void writeFileByLine(String filePath , QuoteApi newQuote)  {
+
+        File file = new File(filePath);
+        Gson gson = new Gson();
+        if (file.exists()) {
+            String jsonQuote = fileReader(filePath);
+            if(!jsonQuote.isEmpty()){
+                ArrayList objQuote = gson.fromJson(jsonQuote, ArrayList.class);
+                objQuote.add(newQuote);
+                File quoteFile = new File(filePath);
+                try (FileWriter quoteFileWriter = new FileWriter(quoteFile)) {
+                    gson.toJson(objQuote, quoteFileWriter);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }else {
+                emptyNotExistFile(filePath , newQuote);
+            }
+            return;
+        } else {
+            emptyNotExistFile(filePath , newQuote);
+        }
+    }
+    public static void emptyNotExistFile(String filePath , QuoteApi newQuote){
+        File quoteFile = new File(filePath);
+        Gson gson = new Gson();
+        try (FileWriter quoteFileWriter = new FileWriter(quoteFile)) {
+            ArrayList<QuoteApi> QuoteApiArray= new ArrayList<>();
+            QuoteApiArray.add(newQuote);
+            gson.toJson(QuoteApiArray, quoteFileWriter);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
